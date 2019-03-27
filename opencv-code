@@ -1,0 +1,74 @@
+import cv2
+import numpy as np
+import random
+
+def sharp_unsharp_masking(original,k,sigma):
+    blur_image    = cv2.GaussianBlur(original,(0,0),sigma).astype(np.int)
+    original      = original.astype(np.int)    
+    sharpen_image = original+k*(original-blur_image)
+    x = sharpen_image.ravel()
+    x[x<0] = 0
+    x[x>255]=255
+    return sharpen_image.astype(np.uint8)
+
+cap = cv2.VideoCapture('./hw1_test.avi')
+out = cv2.VideoWriter('./00657007-HW1.avi',cv2.VideoWriter_fourcc(*'XVID'), 20, (1920,1080))
+cv2.namedWindow('00657007-HW1')
+font =cv2.FONT_HERSHEY_DUPLEX
+flags=[i for i in dir(cv2) if i.startswith('COLOR_BGR2') and i != 'COLOR_BGR2GRAY']
+reversetype = [i for i in dir(cv2) if i.startswith('COLOR_') and i.endswith('BGR')]
+randomfloat = [random.uniform(0,1.5) for _ in range(len(reversetype))]
+print(reversetype)
+img = np.zeros([1080,1920,3],dtype=np.uint8)
+img.fill(0)
+while (cap.isOpened()):
+    ret, frame = cap.read() 
+    framearray=[]
+    frame0=frame.copy()
+    frame = cv2.resize(frame,(1920,1080))
+    original=cv2.resize(frame0,(384,216))
+    standframe = original.copy()
+    cv2.putText(original,'Original',(0,25), font, 0.5, (0,0,0),1)
+    framearray.append(original)
+    for i in flags:
+        frametmp = cv2.cvtColor(standframe,getattr(cv2,i))
+        strtype = 'COLOR_'+str(i[10:])+'2'+str(i[6:9])
+        if(strtype in reversetype):
+            frametmp[:,:,1]=(frametmp[:,:,1].astype(float)*randomfloat[flags.index(i)]).astype(np.uint8)
+            frametmp = cv2.cvtColor(frametmp,getattr(cv2,strtype))
+        cv2.putText(frametmp,i[7:]+',value={:.2f}'.format(randomfloat[flags.index(i)]),(0,25), font, 0.5, (0,0,0),1) 
+        framearray.append(frametmp)
+    framearray.pop(1)
+    frame1 = cv2.cvtColor(standframe,cv2.COLOR_BGR2GRAY)
+    GRAY = cv2.cvtColor(frame1,cv2.COLOR_GRAY2BGR)
+    cv2.putText(GRAY,'GRAY',(0,25), font, 0.5, (0,0,0),1)
+    framearray.append(GRAY)
+
+    framehist=cv2.cvtColor(standframe, cv2.COLOR_BGR2HSV)
+    framehist[:,:,2] = cv2.equalizeHist(framehist[:,:,2])
+    framehist = cv2.cvtColor(framehist,cv2.COLOR_HSV2BGR)
+    cv2.putText(framehist,'Histograms Equalization',(0,25), font, 0.5, (255,255,255),1)
+    framearray.append(framehist)
+
+    framesharp = sharp_unsharp_masking(standframe,2,2)
+    cv2.putText(framesharp,'HisSharp',(0,25), font, 0.5, (255,255,255),1)
+    framearray.append(framesharp)
+
+
+    frame [0:1080,0:1920] = img
+    i=0
+    for j in range(0,len(framearray)):
+        try:    
+            frame[216*(i//5)+80:216*(i//5)+296,384*(i%5):384*(i%5+1)] = framearray[j]
+        except ValueError as e:
+            continue
+        else:
+            i+=1
+    out.write(frame)
+    cv2.imshow('00657007-HW1',frame)
+    key = cv2.waitKey(27) & 0xFF
+    if key == 27:
+        break 
+cap.release()
+out.release()
+cv2.destroyAllWindows()
